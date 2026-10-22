@@ -12,7 +12,7 @@ class TextType(Enum):
 
 class TextTypeDelimiter(Enum):
    BOLD = "**"
-   ITALIC = "*"
+   ITALIC = "_"
    CODE = "`"
    LINK = "[]()"
    IMAGE = "![]()"
@@ -60,18 +60,22 @@ def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: 
    result = []
 
    for node in old_nodes:
-      if node.text_type == TextType.TEXT:
-         if delimiter not in node.text:
-            raise Exception(f"Delimiter '{delimiter}' not found in text: '{node.text}'")
-         
-         parts = node.text.split(delimiter)
-         for i in range(len(parts)):
-            if i % 2 == 1:  # Odd indices are the delimited parts
-               result.append(TextNode(parts[i], text_type))
-            else:  # Even indices are the non-delimited parts
-               result.append(TextNode(parts[i], TextType.TEXT))
-      else:
+      if node.text_type != TextType.TEXT:
          result.append(node)
+         continue
+
+      new_nodes = []
+      parts = node.text.split(delimiter)
+      if len(parts) % 2 == 0:
+         raise ValueError(f"Unmatched delimiter '{delimiter}' in text: {node.text}")
+      for i in range(len(parts)):
+         if parts[i] == "":
+            continue
+         if i % 2 == 0:
+            new_nodes.append(TextNode(parts[i], TextType.TEXT))
+         else:
+            new_nodes.append(TextNode(parts[i], text_type))
+      result.extend(new_nodes)
    return result
 
 def extract_markdown_images(text: str):
@@ -83,3 +87,71 @@ def extract_markdown_links(text: str):
    link_pattern = r"(?<!\!)\[(.*?)\]\((.*?)\)"
    matches = re.findall(link_pattern, text)
    return matches
+
+def split_nodes_image(old_nodes: list[TextNode]) -> list[TextNode]:
+   result = []
+
+   for node in old_nodes:
+      if node.text_type == TextType.TEXT:
+         image_matches = extract_markdown_images(node.text)
+         if not image_matches:
+            result.append(node)
+            continue
+
+         last_index = 0
+         for match in image_matches:
+            alt_text, url = match
+            start_index = node.text.find(f"![{alt_text}]({url})", last_index)
+            if start_index > last_index:
+               result.append(TextNode(node.text[last_index:start_index], TextType.TEXT))
+            result.append(TextNode(alt_text, TextType.IMAGE, url = url))
+            last_index = start_index + len(f"![{alt_text}]({url})")
+
+         if last_index < len(node.text):
+            result.append(TextNode(node.text[last_index:], TextType.TEXT))
+      else:
+         result.append(node)
+   return result
+
+def split_nodes_link(old_nodes: list[TextNode]) -> list[TextNode]:
+   result = []
+
+   for node in old_nodes:
+      if node.text_type == TextType.TEXT:
+         link_matches = extract_markdown_links(node.text)
+         if not link_matches:
+            result.append(node)
+            continue
+
+         last_index = 0
+         for match in link_matches:
+            anchor_text, url = match
+            start_index = node.text.find(f"[{anchor_text}]({url})", last_index)
+            if start_index > last_index:
+               result.append(TextNode(node.text[last_index:start_index], TextType.TEXT))
+            result.append(TextNode(anchor_text, TextType.LINK, url = url))
+            last_index = start_index + len(f"[{anchor_text}]({url})")
+
+         if last_index < len(node.text):
+            result.append(TextNode(node.text[last_index:], TextType.TEXT))
+      else:
+         result.append(node)
+   return result
+
+def text_to_textnodes(text) -> list[TextNode]:
+   nodes = [TextNode(text, TextType.TEXT)]
+   nodes = split_nodes_image(nodes)
+   nodes = split_nodes_link(nodes)
+   nodes = split_nodes_delimiter(nodes, TextTypeDelimiter.BOLD.value, TextType.BOLD)
+   nodes = split_nodes_delimiter(nodes, TextTypeDelimiter.ITALIC.value, TextType.ITALIC)
+   nodes = split_nodes_delimiter(nodes, TextTypeDelimiter.CODE.value, TextType.CODE)
+   return nodes
+
+# TextNode(text=This is , text_type=TextType.TEXT, url=None),
+# TextNode(text=text, text_type=TextType.BOLD, url=None),
+# TextNode(text= with an _italic_ word and a , text_type=TextType.TEXT, url=None),
+# TextNode(text=code block, text_type=TextType.CODE, url=None),
+# TextNode(text= and an , text_type=TextType.TEXT, url=None),
+# TextNode(text=obi wan image, text_type=TextType.IMAGE, url=https://i.imgur.com/fJRm4Vk.jpeg),
+# TextNode(text= and a , text_type=TextType.TEXT, url=None),
+# TextNode(text=link, text_type=TextType.LINK, url=https://boot.dev)
