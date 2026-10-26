@@ -4,8 +4,8 @@ from leafnode import LeafNode
 
 class TextType(Enum):
    TEXT = ("", "")
-   BOLD = ("<strong>", "</strong>")
-   ITALIC = ("<em>", "</em>")
+   BOLD = ("<b>", "</b>")
+   ITALIC = ("<i>", "</i>")
    CODE = ("<code>", "</code>")
    LINK = ("<a href='{url}'>", "{anchor}</a>")
    IMAGE = ("<img src='{url}'", "alt='{alt}' />")
@@ -32,24 +32,25 @@ class TextNode:
       return f"TextNode(text={self.text}, text_type={self.text_type}, url={self.url})"
 
 def text_node_to_html_node(text_node: TextNode) -> LeafNode:
-   if text_node.text_type is TextType.TEXT:
-      return LeafNode("", text_node.text)
+   if text_node.text_type == TextType.TEXT:
+      return LeafNode(None, text_node.text)
 
    if text_node.text_type == TextType.BOLD:
-      return LeafNode("strong", text_node.text)
+      return LeafNode("b", text_node.text)
+
    if text_node.text_type == TextType.ITALIC:
-      return LeafNode("em", text_node.text)
+      return LeafNode("i", text_node.text)
 
    if text_node.text_type == TextType.CODE:
       return LeafNode("code", text_node.text)
 
    if text_node.text_type == TextType.LINK:
-      if text_node.url is None:
+      if text_node.url == None:
          raise ValueError("LINK text type requires a URL for the href attribute.")
       return LeafNode("a", text_node.text, props={"href": text_node.url})
 
    if text_node.text_type == TextType.IMAGE:
-      if text_node.url is None:
+      if text_node.url == None:
          raise ValueError("IMAGE text type requires a URL for the source attribute.")
       return LeafNode("img", "", props={"src": text_node.url, "alt": text_node.text})
 
@@ -76,6 +77,7 @@ def split_nodes_delimiter(old_nodes: list[TextNode], delimiter: str, text_type: 
          else:
             new_nodes.append(TextNode(parts[i], text_type))
       result.extend(new_nodes)
+
    return result
 
 def extract_markdown_images(text: str):
@@ -111,6 +113,7 @@ def split_nodes_image(old_nodes: list[TextNode]) -> list[TextNode]:
             result.append(TextNode(node.text[last_index:], TextType.TEXT))
       else:
          result.append(node)
+
    return result
 
 def split_nodes_link(old_nodes: list[TextNode]) -> list[TextNode]:
@@ -136,6 +139,7 @@ def split_nodes_link(old_nodes: list[TextNode]) -> list[TextNode]:
             result.append(TextNode(node.text[last_index:], TextType.TEXT))
       else:
          result.append(node)
+
    return result
 
 def text_to_textnodes(text) -> list[TextNode]:
@@ -146,12 +150,3 @@ def text_to_textnodes(text) -> list[TextNode]:
    nodes = split_nodes_delimiter(nodes, TextTypeDelimiter.ITALIC.value, TextType.ITALIC)
    nodes = split_nodes_delimiter(nodes, TextTypeDelimiter.CODE.value, TextType.CODE)
    return nodes
-
-# TextNode(text=This is , text_type=TextType.TEXT, url=None),
-# TextNode(text=text, text_type=TextType.BOLD, url=None),
-# TextNode(text= with an _italic_ word and a , text_type=TextType.TEXT, url=None),
-# TextNode(text=code block, text_type=TextType.CODE, url=None),
-# TextNode(text= and an , text_type=TextType.TEXT, url=None),
-# TextNode(text=obi wan image, text_type=TextType.IMAGE, url=https://i.imgur.com/fJRm4Vk.jpeg),
-# TextNode(text= and a , text_type=TextType.TEXT, url=None),
-# TextNode(text=link, text_type=TextType.LINK, url=https://boot.dev)
