@@ -1,13 +1,14 @@
 import os
 import shutil
 import re
+import pathlib
 
 from mdblocks import markdown_to_html_node, extract_title_from_markdown
 from parentnode import ParentNode
 
 def main():
    copy_source_directory("static", "public")
-   generate_page("content/index.md", "template.html", "public/index.html")
+   generate_pages_recursive("content", "template.html", "public")
 
 def copy_source_directory(source_dir, destination_dir):
    if not os.path.exists(source_dir):
@@ -53,6 +54,37 @@ def generate_page(from_path, template_path, dest_path):
 
       index_f.write(index_html)
 
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+   content_source = pathlib.Path(dir_path_content)
+   destination = pathlib.Path(dest_dir_path)
+
+   # check if dir_path_content is a directory or a file
+   # if dir_path_content is a file...
+   if content_source.is_file():
+      # is file markdown
+      # yes, create destination path then generate page
+      if content_source.suffix.lower() == ".md":
+         dest_path = destination / f"{content_source.stem}.html"
+         generate_page(content_source, template_path, dest_path)
+      # if not a markdown file, copy the file to the destination
+      else:
+         shutil.copy2(content_source, destination / content_source.name)
+      return
+
+   # if dir_path_content is a directory get the contents of the directory
+   if content_source.is_dir():
+      # create the directory in the destination, if not the root source directory
+      directory = content_source.parts[-1]
+      if directory != "content":
+         new_path = os.path.join(destination, directory)
+         os.makedirs(new_path)
+         destination = new_path
+      # iterate through each item in directory and call generate_pages_recursive on each item in directory
+      for item in content_source.iterdir():
+         generate_pages_recursive(item, template_path, destination)
+      return
+
+   raise ValueError("The source path does not point to a file or directory")
 
 if __name__ == "__main__":
-   main()
+   main() 
