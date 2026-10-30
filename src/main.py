@@ -7,8 +7,10 @@ from mdblocks import markdown_to_html_node, extract_title_from_markdown
 from parentnode import ParentNode
 
 def main():
-   copy_source_directory("static", "public")
-   generate_pages_recursive("content", "template.html", "public")
+   basepath = os.sys.argv[1] if len(os.sys.argv) > 1 else "/"
+
+   copy_source_directory("static", "docs")
+   generate_pages_recursive("content", "template.html", "docs")
 
 def copy_source_directory(source_dir, destination_dir):
    if not os.path.exists(source_dir):
