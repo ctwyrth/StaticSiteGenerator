@@ -5,13 +5,20 @@ class HtmlNode:
       self.children = children if children is not None else []
       self.props = props if props is not None else {}
 
-   def to_html(self):
+   def to_html(self, basepath=""):
       raise NotImplementedError("Subclasses must implement the to_html method.")
 
-   def props_to_html(self):
+   def props_to_html(self, basepath=""):
       if not self.props:
          return ""
-      props_str = " ".join(f'{key}="{value}"' for key, value in self.props.items())
+
+      props = self.props.copy()
+      for attribute in ("href", "src"):
+         url = props.get(attribute)
+         if basepath and isinstance(url, str) and url.startswith("/"):
+            props[attribute] = basepath.rstrip("/") + url
+
+      props_str = " ".join(f'{key}="{value}"' for key, value in props.items())
       return f" {props_str}"
 
    def __repr__(self):

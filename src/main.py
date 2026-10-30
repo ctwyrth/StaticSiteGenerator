@@ -10,7 +10,7 @@ def main():
    basepath = os.sys.argv[1] if len(os.sys.argv) > 1 else "/"
 
    copy_source_directory("static", "docs")
-   generate_pages_recursive("content", "template.html", "docs")
+   generate_pages_recursive("content", "template.html", "docs", basepath)
 
 def copy_source_directory(source_dir, destination_dir):
    if not os.path.exists(source_dir):
@@ -42,21 +42,23 @@ def copy_source_directory(source_dir, destination_dir):
 
    print(f"Copied contents of '{source_dir}' to '{destination_dir}'.")
 
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath):
    print(f"Generating page from {from_path} to {dest_path} using {template_path}")
 
    with open(from_path, 'r') as md_f, open(template_path, 'r') as temp_f, open(dest_path, 'w') as index_f:
       md = md_f.read()
-      md_to_html = markdown_to_html_node(md).to_html()
+      md_to_html = markdown_to_html_node(md).to_html(basepath)
       page_title = extract_title_from_markdown(md)
+      css_link = basepath.rstrip("/") + "/index.css" if basepath else "index.css"
 
       html_temp = temp_f.read()
-      title_html = html_temp.replace("{{ Title }}", page_title)
+      css_html = html_temp.replace("{{ CSS File }}", css_link)
+      title_html = css_html.replace("{{ Title }}", page_title)
       index_html = title_html.replace("{{ Content }}", md_to_html)
 
       index_f.write(index_html)
 
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath):
    content_source = pathlib.Path(dir_path_content)
    destination = pathlib.Path(dest_dir_path)
 
@@ -67,7 +69,7 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
       # yes, create destination path then generate page
       if content_source.suffix.lower() == ".md":
          dest_path = destination / f"{content_source.stem}.html"
-         generate_page(content_source, template_path, dest_path)
+         generate_page(content_source, template_path, dest_path, basepath)
       # if not a markdown file, copy the file to the destination
       else:
          shutil.copy2(content_source, destination / content_source.name)
@@ -83,7 +85,7 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
          destination = new_path
       # iterate through each item in directory and call generate_pages_recursive on each item in directory
       for item in content_source.iterdir():
-         generate_pages_recursive(item, template_path, destination)
+         generate_pages_recursive(item, template_path, destination, basepath)
       return
 
    raise ValueError("The source path does not point to a file or directory")
